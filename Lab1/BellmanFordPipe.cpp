@@ -3,10 +3,10 @@
 #include <sys/types.h>
 #include <fcntl.h>
 #include <unistd.h>
-#include <string.h>
+#include <cstring>
 #include <string>
 
-#define FIFO_FILE "MYFIFO"
+#define FIFO_FILE "BELLMANFORD"
 
 int main() {
     int fd;

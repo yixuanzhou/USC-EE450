@@ -8,37 +8,31 @@
 
 using namespace std;
 
-vector<vector<int>> graphGenerator(int num) {
+vector<vector<int>> generateDAG(int num) {
     vector<int> node;
     vector<vector<int>> map(num, vector<int> (num));
 
     int maxWeight = 100;
-
-    for (int i = 0; i < 5; i++) node.push_back(i);
+    for (int i = 0; i < num; i++) node.push_back(i);
 
     random_shuffle (node.begin(), node.end());
     random_shuffle (node.begin(), node.end());
 
     srand(time(NULL));
 
-    int m = rand() % (num * num) + 1;
+    int m = num * (num-1) / 2; // number of edges
 
     for (int i = 0; i < m; i++) {
         int p1 = rand() % num;
-        int p2 = rand() % (num-p1) + p1 + 1;
-        cout << p1 << " " << p2 << endl;
+        int p2 = rand() % num;
+
+        if (p1 == p2) continue;
 
         int x = node[p1];
         int y = node[p2];
-        int l = rand() % maxWeight + 1;
-        map[x][y] = l;
-    }
 
-    for (int i = 0; i < num; i++) {
-        for (int j = 0; j < num; j++) {
-            cout << map[i][j] << " ";
-        }
-        cout << endl;
+        int l = rand() % maxWeight + 1; // weight
+        map[x][y] = l;
     }
 
     return map;
@@ -46,7 +40,7 @@ vector<vector<int>> graphGenerator(int num) {
 
 void writeCSV(int n) {
 
-    vector<vector<int>> data = graphGenerator(n);
+    vector<vector<int>> data = generateDAG(n);
     ofstream myfile;
     myfile.open ("N"+to_string(n)+".csv");
 

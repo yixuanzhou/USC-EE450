@@ -1,4 +1,4 @@
-#include <stdio.h>
+#include <cstdio>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <fcntl.h>
@@ -6,7 +6,7 @@
 #include <string>
 #include <cstring>
 
-#define FIFO_FILE "MYFIFO"
+#define FIFO_FILE "BELLMANFORD"
 
 int main() {
     int fd;
@@ -26,9 +26,9 @@ int main() {
             char cf[20];
             std::string filename = "N" + std::string(readbuf) + ".csv";
             strcpy(cf, filename.c_str());
+            printf("Copy that!");
             execl("BellmanFord", "BellmanFord", cf, (char *) 0);
         }
-        printf("Received string: \"%s\" and length is %d\n", readbuf, (int)strlen(readbuf));
         to_end = strcmp(readbuf, end);
         if (to_end == 0) {
             close(fd);
