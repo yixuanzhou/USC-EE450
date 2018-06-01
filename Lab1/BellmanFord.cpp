@@ -47,23 +47,25 @@ vector<int> BellmanFordSP(vector<vector<int>> graph) {
     int ct = 0; // count number of iterations
     vector<int> dist;
 	dist.push_back(0);
-	for (int i = 1; i < numOfNode; i++) dist.push_back(INT_MAX); // initialization
+	vector<int> visited(dist); // store visited node
+	for (int i = 1; i < numOfNode; i++) dist.push_back(INT_MAX); // initialize graph
 	vector<int> updated_dist(dist);
     vector<int> pred(numOfNode, 0);
 
     for (int i = 0; i < numOfNode-1; i++) {
         ct++;
-        for (int j = 0; j < numOfNode; j++) {
-            for (int k = 0; k < numOfNode; k++) {
-                if (graph[j][k] < 0) continue; // if there is not path...
-                if (dist[k] > dist[j] + graph[j][k] and dist[j] != INT_MAX) {
-                    dist[k] = dist[j] + graph[j][k]; // update value when new distance < current distance
-                    pred[k] = j;  //
+        for (int src : visited) {
+            for (int des = 0; des < numOfNode; des++) {
+                if (graph[src][des] < 0) continue; // if there is not path...
+                if (dist[des] > dist[src] + graph[src][des] and dist[src] != INT_MAX) {
+                    dist[des] = dist[src] + graph[src][des]; // update value when new distance < current distance
+                    pred[des] = src;  // set source node the predecessor of the destination node
+                    visited.push_back(des);
                 }
             }
         }
 
-        if (dist == updated_dist) break; // early termination, when there is no update to dist vector
+        if (dist == updated_dist) break; // early termination, when there is nothing to update
         else updated_dist = dist;
     }
 
