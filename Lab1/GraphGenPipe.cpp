@@ -3,34 +3,34 @@
 #include <sys/types.h>
 #include <fcntl.h>
 #include <unistd.h>
-#include <string>
 #include <cstring>
+#include <string>
 
 #define FIFO_FILE "BELLMANFORD"
 
 int main() {
     int fd;
-    char readbuf[80];
-    char end[10];
-    int to_end;
-    int read_bytes;
+    int stringlen;
+    int end_process;
 
-    /* Create the FIFO if it does not exist */
-    mknod(FIFO_FILE, S_IFIFO|0640, 0);
-    strcpy(end, "end");
+    char readbuf[80];
+    char end_str[5];
+    fd = open(FIFO_FILE, O_CREAT|O_WRONLY);
+
+    strcpy(end_str, "end");
+
     while (true) {
-        fd = open(FIFO_FILE, O_RDONLY);
-        read_bytes = read(fd, readbuf, sizeof(readbuf));
-        readbuf[read_bytes] = '\0';
-        if (read_bytes > 0) {
-            char cf[20];
-            std::string filename = "N" + std::string(readbuf) + ".csv";
-            strcpy(cf, filename.c_str());
-            printf("Copy that!");
-            execl("BellmanFord", "BellmanFord", cf, (char *) 0);
-        }
-        to_end = strcmp(readbuf, end);
-        if (to_end == 0) {
+        printf("Enter the number of nodes you want to create: ");
+        fgets(readbuf, sizeof(readbuf), stdin);
+        stringlen = strlen(readbuf);
+        readbuf[stringlen - 1] = '\0';
+        end_process = strcmp(readbuf, end_str);
+
+        if (end_process != 0) {
+            write(fd, readbuf, strlen(readbuf));
+            execl("GraphGen", "GraphGen", readbuf, (char *) 0);
+        } else {
+            write(fd, readbuf, strlen(readbuf));
             close(fd);
             break;
         }

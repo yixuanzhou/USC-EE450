@@ -8,6 +8,7 @@
 
 using namespace std;
 
+/* randomly generate a directed graph. */
 vector<vector<int>> generateDAG(int num) {
     vector<int> node;
     vector<vector<int>> map(num, vector<int> (num));
@@ -38,6 +39,7 @@ vector<vector<int>> generateDAG(int num) {
     return map;
 }
 
+/* write generated graph into csv file. */
 void writeCSV(int n) {
 
     vector<vector<int>> data = generateDAG(n);

@@ -49,8 +49,8 @@ vector<int> BellmanFordSP(vector<vector<int>> graph) {
 	dist.push_back(0);
 	vector<int> visited(dist); // store visited node
 	for (int i = 1; i < numOfNode; i++) dist.push_back(INT_MAX); // initialize graph
-	vector<int> updated_dist(dist);
-    vector<int> pred(numOfNode, 0);
+	vector<int> updated_dist(dist); // store the result of last iteration
+    vector<int> pred(numOfNode, 0); // predecessor
 
     for (int i = 0; i < numOfNode-1; i++) {
         ct++;
