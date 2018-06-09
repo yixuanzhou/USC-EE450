@@ -1,30 +1,23 @@
-/*
-** client.c -- a stream socket client demo
-*/
-
-#include <stdio.h>
+#include <cstdio>
 #include <stdlib.h>
 #include <unistd.h>
 #include <errno.h>
-#include <string.h>
+#include <cstring>
 #include <netdb.h>
 #include <sys/types.h>
 #include <netinet/in.h>
 #include <sys/socket.h>
 #include <string>
 #include <iostream>
-#include <random>
-
+#include <sstream>
 #include <arpa/inet.h>
 
-#define PORT "3490" // the port client will be connecting to 
-
-#define MAXDATASIZE 100 // max number of bytes we can get at once 
+#define PORT "3676"  // 3300 + 376 (uscid:3827 1583 76)
+#define MAXDATASIZE 1024 // max number of bytes we can get at once 
 
 using namespace std;
 // get sockaddr, IPv4 or IPv6:
-void *get_in_addr(struct sockaddr *sa)
-{
+void *get_in_addr(struct sockaddr *sa) {
 	if (sa->sa_family == AF_INET) {
 		return &(((struct sockaddr_in*)sa)->sin_addr);
 	}
@@ -32,21 +25,34 @@ void *get_in_addr(struct sockaddr *sa)
 	return &(((struct sockaddr_in6*)sa)->sin6_addr);
 }
 
-string randTransID () {
-	default_random_engine generator;
-  	uniform_int_distribution<int> distribution(0,1);
-    int num = 0;
-
-    for (int i = 0; i < 8; i++) {
-        int d = distribution(generator);
-        cout << d;
-        num += (d * 2 ^ i);
-    }
-    return to_string(num);
+string toString (int num) {
+    stringstream ss;
+    ss << num;
+    return ss.str();
 }
 
-int main(int argc, char *argv[])
-{
+int pow(double x, int n) {
+    if (n == 0) return 1;
+    if (n == 1) return x;
+    if (n < 0) {
+        x = 1/x;
+        return n % 2 == 0 ? pow(x*x, -(n/2)) : x * pow(x*x, -((n+1)/2));
+    }
+    return n % 2 == 0 ? pow(x*x, n/2) : x * pow(x*x, (n-1)/2);
+}
+
+string randTransID () {
+	srand(time(NULL));
+
+    int num = 0;
+    for (int i = 0; i < 8; i++) {
+        int d = rand() % 2;
+        num += (d * pow(2, i));
+    }
+    return toString(num);
+}
+
+int main(int argc, char *argv[]) {
 	int sockfd, numbytes;  
 	char buf[MAXDATASIZE];
 	struct addrinfo hints, *servinfo, *p;
@@ -95,31 +101,36 @@ int main(int argc, char *argv[])
 
 	freeaddrinfo(servinfo); // all done with this structure
 
+	/* DISCOVER PHASE */
 	string id;
-
 	id = randTransID();
-	cout << id << endl;
-    strcpy(buf, id.c_str());
-
-    /* DISCOVER PHASE */
-    if ((numbytes = send(sockfd, buf, MAXDATASIZE-1, 0)) > 0) {
-        cout << "Request sent, with Transaction ID: " << buf << endl;
+    strcpy(buf, id.c_str());    
+    if ((numbytes = send(sockfd, buf, MAXDATASIZE-1, 0)) > 0) {    	
+        cout << "Broadcast: \"Can someone give me an address?\", with Transaction ID: " << buf << endl;
     }
 
+    string recvAddr;
+    string recvID;
+    /* RECEIVED IP ADDRESS FROM DHCP SERVER */
     if ((numbytes = recv(sockfd, buf, MAXDATASIZE-1, 0)) > 0) {
-    	cout << "IP address received: " << buf << endl;
+    	string msg = string(buf);
+    	int idx = msg.find('#');
+    	recvAddr = msg.substr(0, idx);
+    	recvID = msg.substr(idx+1);
+    	cout << "Offer received, IP address: " << recvAddr << ", with transaction ID: " << recvID << endl;
+  	    sleep(3);
     }
-
-    string ipad = buf;
 
     /* REQUEST PHASE */
     id = randTransID();
-	cout << id << endl;
     strcpy(buf, id.c_str());
-
     if ((numbytes = send(sockfd, buf, MAXDATASIZE-1, 0)) > 0) {
-        cout << "Ok, I want this: " << ipad << ", with transaction ID: " << buf << endl;
+        cout << "Ok, I want to take this offer: " << recvAddr << ", with transaction ID: " << buf << endl;
     }
+
+    if ((numbytes = recv(sockfd, buf, MAXDATASIZE-1, 0)) > 0) {
+	    cout << "Completed. Now using address: " << recvAddr << endl;
+	}
 
 	if ((numbytes = recv(sockfd, buf, MAXDATASIZE-1, 0)) == -1) {
 	    perror("recv");
@@ -131,4 +142,3 @@ int main(int argc, char *argv[])
 
 	return 0;
 }
-

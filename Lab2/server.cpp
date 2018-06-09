@@ -1,12 +1,8 @@
-/*
-** server.c -- a stream socket server demo
-*/
-
-#include <stdio.h>
+#include <cstdio>
 #include <stdlib.h>
 #include <unistd.h>
 #include <errno.h>
-#include <string.h>
+#include <cstring>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
@@ -16,16 +12,15 @@
 #include <signal.h>
 #include <string>
 #include <iostream>
-#include <random>
+#include <sstream>
 
-#define PORT "3490"  // the port users will be connecting to
-
+#define PORT "3676"  // 3300 + 376 (uscid:3827 1583 76)
 #define BACKLOG 10	 // how many pending connections queue will hold
+#define MAXDATASIZE 1024 // max number of bytes we can get at once 
 
 using namespace std;
 
-void sigchld_handler(int s)
-{
+void sigchld_handler(int s) {
 	(void)s; // quiet unused variable warning
 
 	// waitpid() might overwrite errno, so we save and restore it:
@@ -38,8 +33,7 @@ void sigchld_handler(int s)
 
 
 // get sockaddr, IPv4 or IPv6:
-void *get_in_addr(struct sockaddr *sa)
-{
+void *get_in_addr(struct sockaddr *sa) {
 	if (sa->sa_family == AF_INET) {
 		return &(((struct sockaddr_in*)sa)->sin_addr);
 	}
@@ -47,29 +41,52 @@ void *get_in_addr(struct sockaddr *sa)
 	return &(((struct sockaddr_in6*)sa)->sin6_addr);
 }
 
-string randomAddr () {
+string toString (int num) {
+    stringstream ss;
+    ss << num;
+    return ss.str();
+}
 
-	default_random_engine generator;
-  	uniform_int_distribution<int> distribution(0,1);
+int pow(double x, int n) {
+    if (n == 0) return 1;
+    if (n == 1) return x;
+    if (n < 0) {
+        x = 1/x;
+        return n % 2 == 0 ? pow(x*x, -(n/2)) : x * pow(x*x, -((n+1)/2));
+    }
+    return n % 2 == 0 ? pow(x*x, n/2) : x * pow(x*x, (n-1)/2);
+}
 
-    int IPv4addr[32];
+string randTransID () {
+	srand(time(NULL));
+
+    int num = 0;
+    for (int i = 0; i < 8; i++) {
+        int d = rand() % 2;
+        num += (d * pow(2, i));
+    }
+
+    return toString(num);
+}
+
+string randomAddr (string transID) {
+	srand(time(NULL));
     string addr = "";
     int curr = 0;
-    for (int i = 0; i < 32; i++) {
-        int r = distribution(generator);
-        cout << r;
-        IPv4addr[i] = r;
-        curr += (r * 2 ^ (i % 8));
+
+    for (int i = 0; i < 24; i++) {
+        int r = rand() % 2;
+        curr += (r * pow(2, (i % 8)));
         if (i % 8 == 7) {
-            addr = to_string(curr) + "." + addr;
+            addr = toString(curr) + "." + addr;
             curr = 0;
         }
     }
-    return addr;
+
+    return addr + transID;
 }
 
-int main(void)
-{
+int main(void) {
 	int sockfd, new_fd;  // listen on sock_fd, new connection on new_fd
 	struct addrinfo hints, *servinfo, *p;
 	struct sockaddr_storage their_addr; // connector's address information
@@ -151,21 +168,36 @@ int main(void)
 			s, sizeof s);
 		printf("server: got connection from %s\n", s);
 		string addr;
+		string id;
 
-		if ((numbytes = recv(new_fd, buf, 1024, 0)) > 0) {
-		    cout << "Received" << endl;
-		    addr = randomAddr();
-            strcpy(buf, addr.c_str());
+		/* RECEIVED REQUEST FROM CLIENT */
+		if ((numbytes = recv(new_fd, buf, MAXDATASIZE-1, 0)) > 0) {
+		    cout << "Message Received, with Transaction ID: " << buf << endl;
+		    sleep(3);    
 		}
 
 		/* OFFER PHASE */
-		if ((numbytes = send(new_fd, buf, 1024, 0)) > 0) {
-			cout << "IP address sent: " << buf << endl;
-		}
+		string recvID = string(buf);
+		addr = randomAddr(recvID);
+		id = randTransID();
+		string msg = addr + "#" + id;
+	   	strcpy(buf, msg.c_str());
+		if ((numbytes = send(new_fd, buf, MAXDATASIZE-1, 0)) > 0) {			
+			cout << "I can offer you with IP address: " << addr << ", with Transaction ID: " << id << endl;
+		}		
 
 		/* ACKNOWLEDGE PHASE */
+		if ((numbytes = recv(new_fd, buf, MAXDATASIZE-1, 0)) > 0) {
+			cout << "Received acknowledgment, with transaction ID: " << buf << endl;
+			sleep(3);
+		}
+
+	    id = randTransID();
+		strcpy(buf, id.c_str());
+	    if ((numbytes = send(new_fd, buf, MAXDATASIZE-1, 0)) > 0) {
+	    	cout << "Now you can use this address: " << addr << ", with Transaction ID: " << buf << endl;
+		}		
 	}
 
 	return 0;
 }
-
