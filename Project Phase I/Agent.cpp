@@ -15,9 +15,18 @@
 #include <vector>
 #include <sstream>
 
-#define PORT "3676"  // 3300 + 376 (uscid:3827 1583 76)
+#define TCP_PORT 4076
 
 using namespace std;
+
+// TWO VECTORS TO STORE SELLER'S INFORMAITON
+string sellerA_INFO[2];
+string sellerB_INFO[2];
+
+int udp_sockfd;
+int tcp_sockfd;
+struct sockaddr_in tcp_servaddr, tcp_cliaddr;
+struct sockaddr_in udp_servaddr;
 
 vector<string> parseMsg(string info) {
     stringstream ss(info);
@@ -29,81 +38,95 @@ vector<string> parseMsg(string info) {
     }
     return res;
 }
+ 
+void doprocessing(int sock) {
+    int numbytes;
+    char buffer[256];
+    bzero(buffer,256);
+    numbytes = read(sock, buffer, 255);
 
-int main(void) {
-    struct sockaddr_in myaddr ,clientaddr;
-    int sockid, newsockid, client_socket[3];
-    char buf[1024];
-    int numbyte;
-    int max_clients = 3, sd, activity, valread;  
-    int max_sd;
+    if (numbytes < 0) perror("ERROR reading from socket");
+    vector<string> msg = parseMsg(buffer);
 
-    char *message = "ECHO Daemon v1.0 \r\n";  
+    if (msg[0] == "sellerA") {
+        cout << "sellerA received" << endl;
+        sellerA_INFO[0] = msg[2];
+        sellerA_INFO[1] = msg[4];
+    }
 
-    for (int i = 0; i < max_clients; i++) client_socket[i] = 0;
+    if (msg[0] == "sellerB") {
+        cout << "sellerB received" << endl;
+        sellerB_INFO[0] = msg[2];
+        sellerB_INFO[1] = msg[4];
+    }
 
-    sockid = socket(AF_INET, SOCK_STREAM, 0);
-    memset(&myaddr, '0', sizeof(myaddr));
+    printf("Here is the message: %s\n", buffer);
+}
 
-    fd_set readfds;
-    myaddr.sin_family = AF_INET;
-    myaddr.sin_port = htons(3300);
-    myaddr.sin_addr.s_addr = inet_addr("127.0.0.1");
+// Create and handle tcp socket connections
+void tcp_server(int port) {
 
-    if (sockid == -1) perror("socket");
+    tcp_sockfd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+    if (tcp_sockfd < 0) perror("ERROR opening socket");
+
+    bzero((char *) &tcp_servaddr, sizeof(tcp_servaddr)); // make sure the struct is empty
+
+    tcp_servaddr.sin_family = AF_INET;
+    tcp_servaddr.sin_addr.s_addr = INADDR_ANY;
+    tcp_servaddr.sin_port = htons(TCP_PORT);
+
+    if (bind(tcp_sockfd, (struct sockaddr *) &tcp_servaddr, sizeof(tcp_servaddr)) < 0) perror("ERROR on binding");
+
+    if (listen(tcp_sockfd, 5) < 0) perror("ERROR on listening");
     
-    socklen_t addrlen = sizeof(myaddr);
-    //int addrlen = sizeof(myaddr);
-    if (bind(sockid, (struct sockaddr *)&myaddr, addrlen) < 0) perror("bind");
+}
 
-    if (listen(sockid, 3) == -1) perror("listen");
-
+void receive_from_sellers(int numOfClients) {
+    int newsockfd;
+    char buffer[256];
     int pid;
-    int counter = 0;
 
-    while (1) {
-        newsockid = accept(sockid, (struct sockaddr *)&clientaddr, &addrlen);
+    socklen_t clilen = sizeof(tcp_cliaddr);
 
-        if ((pid = fork()) == -1) {
-            close(newsockid);
-            continue;
-        }
-        else if (pid > 0) {
-            close(newsockid);
-            counter++;
-            printf("here2\n");
-            continue;
-        }
-        else if (pid == 0) {
-            char buf[100];
-            counter++;
-            printf("here 1\n");
-            snprintf(buf, sizeof buf, "hi %d", counter);
-            send(newsockid, buf, strlen(buf), 0);
-            close(newsockid);
-            break;
-        }
+    for(int ct = 0; ct < numOfClients; ct++) {
+        newsockfd = accept(tcp_sockfd, (struct sockaddr *) &tcp_cliaddr, &clilen);
+        if (newsockfd < 0) perror("ERROR on accept");
+
+        pid = fork();
+        if (pid < 0) perror("ERROR on fork");
+        if (pid == 0) {
+            close(tcp_sockfd);
+            doprocessing(newsockfd);
+            exit(0);
+        } else close(newsockfd);
     }
+}
 
-    /* UDP */
-    // Creating socket file descriptor
-    /*sockid = socket(AF_INET, SOCK_DGRAM, 0);
+void create_udp_socket() {
+    udp_sockfd = socket(AF_INET, SOCK_DGRAM, 0);
+    if (udp_sockfd == -1) perror("socket");    
+}
 
-    memset(&myaddr, '0', sizeof(myaddr));
-    myaddr.sin_family = AF_INET;
-    myaddr.sin_port = htons(21776);
-    myaddr.sin_addr.s_addr = inet_addr("127.0.0.1");
+void send_to_buyer(int port) {
+    char buf[1024];
 
+    memset(&udp_servaddr, 0, sizeof(udp_servaddr));
+
+    udp_servaddr.sin_family = AF_INET;
+    udp_servaddr.sin_port = htons(port);
+    udp_servaddr.sin_addr.s_addr = INADDR_ANY;
+    socklen_t addrlen = sizeof(udp_servaddr);
      
-    if ((numbyte = sendto(sockid, buf, 1024, 0, (const struct sockaddr *) &myaddr, sizeof(myaddr))) > 0) {
-        cout << "Info sent to buyers" << endl;
-    }
-     /*    
-    if n = recvfrom(sockfd, (char *)buffer, MAXLINE, 
-                MSG_WAITALL, (struct sockaddr *) &servaddr,
-                &len);
-    buffer[n] = '\0';*/
- /*
-    close(sockid);*/
+    sendto(udp_sockfd, buf, 1024, 0, (const struct sockaddr *) &udp_servaddr, sizeof(udp_servaddr));
+}
+ 
+int main(int argc, char *argv[]) {
+
+    tcp_server(TCP_PORT);
+    receive_from_sellers(2);
+    create_udp_socket();
+    send_to_buyer(21776);
+    send_to_buyer(21876);
+
     return 0;
 }

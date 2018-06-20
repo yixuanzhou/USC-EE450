@@ -11,12 +11,9 @@
 #include <iostream>
 #include <sstream>
 #include <fstream>
-
-#include <vector>
 #include <arpa/inet.h>
 
-#define PORT "3676"  // 3300 + 376 (uscid:3827-1583-76)
-#define MAXDATASIZE 1024 // max number of bytes we can get at once
+#define PORT 3676 // 3300 + 376 (uscid:3827-1583-76)
 
 using namespace std;
 
@@ -41,16 +38,30 @@ int main(int argc, char *argv[]) {
 	struct sockaddr_in servaddr;
 	char buf[1024];
 	int numbyte;
+	char s[INET_ADDRSTRLEN];
+
 	int sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
 
 	if (sock == -1) perror("Socket");
 
 	bzero((void *) &servaddr, sizeof(servaddr));
 	servaddr.sin_family = AF_INET;
-	servaddr.sin_port = htons(3300);
-	servaddr.sin_addr.s_addr = inet_addr("127.0.0.1");
+	servaddr.sin_port = htons(4076);
+	servaddr.sin_addr.s_addr = INADDR_ANY;
+
+	struct sockaddr_in* pV4Addr = (struct sockaddr_in*) &servaddr;
+	struct in_addr ipAddr = pV4Addr->sin_addr;
+	char str[INET_ADDRSTRLEN];
+	inet_ntop( AF_INET, &ipAddr, str, INET_ADDRSTRLEN );
+
+	printf("<SellerA> has TCP port %d and IP address %s for Phase I part 1", PORT, str);
 
 	if (-1 == connect(sock, (struct sockaddr *)&servaddr, sizeof(servaddr))) perror("Connect");
+
+	printf("<SellerA> is now connected to the <Agent1>");
+
+
+
 
 	string data = readFile("sellerA.txt");
 	//cout << data << endl;
@@ -63,7 +74,6 @@ int main(int argc, char *argv[]) {
 	if ((numbyte = recv(sock, buf, 1024, 0)) > 0) {
 		cout << "Recv" << endl;
 	}
-
 
 	return 0;
 }
