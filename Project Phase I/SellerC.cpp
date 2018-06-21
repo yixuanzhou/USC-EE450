@@ -13,7 +13,7 @@
 #include <fstream>
 #include <arpa/inet.h>
 
-#define SellerB_TCP_PORT 3776
+#define SellerC_TCP_PORT 3876
 
 using namespace std;
 
@@ -33,7 +33,7 @@ string readFile(string filename) {
         }
     }
 
-    return "sellerB,"+res.substr(0, res.length()-1);
+    return "sellerC,"+res.substr(0, res.length()-1);
 }
 
 /* Phase I Part 4 */
@@ -47,14 +47,14 @@ void create_tcp_server() {
 
     tcp_servaddr.sin_family = AF_INET;
     tcp_servaddr.sin_addr.s_addr = INADDR_ANY;
-    tcp_servaddr.sin_port = htons(SellerB_TCP_PORT);
+    tcp_servaddr.sin_port = htons(SellerA_TCP_PORT);
 
     if (bind(tcp_sockfd, (struct sockaddr *) &tcp_servaddr, sizeof(tcp_servaddr)) < 0) perror("ERROR on binding");
     strcpy(ipaddr, inet_ntoa(tcp_servaddr.sin_addr));
 
     if (listen(tcp_sockfd, 5) < 0) perror("ERROR on listening");
 
-    cout << "<SellerB> has TCPport " << SellerB_TCP_PORT << " and IP address " << ipaddr << " for Phase I part 4" << endl;
+    cout << "<SellerC> has TCPport " << SellerC_TCP_PORT << " and IP address " << ipaddr << " for Phase I part 4" << endl;
 }
 
 /* Phase I Part 1 */
@@ -71,7 +71,7 @@ void create_tcp_client() {
     tcp_servaddr.sin_addr.s_addr = INADDR_ANY;
 
     strcpy(ipaddr, inet_ntoa(tcp_servaddr.sin_addr));
-    cout << "<SellerB> has TCPport " << SellerB_TCP_PORT << " and IP address " << ipaddr << " for Phase 1part 1" << endl;
+    cout << "<SellerC> has TCPport " << SellerC_TCP_PORT << " and IP address " << ipaddr << " for Phase 1part 1" << endl;
 }
 
 /* Phase I Part 1 */
@@ -81,15 +81,15 @@ void send_to_agent() {
 
     if (-1 == connect(tcp_sockfd, (struct sockaddr *)&tcp_servaddr, sizeof(tcp_servaddr))) perror("Connect");
 
-    cout << "<SellerA> is now connected to the <Agent1>" << endl;
+    cout << "<SellerC> is now connected to the <Agent2>" << endl;
 
-    string data = readFile("seller/sellerB.txt");
+    string data = readFile("seller/sellerC.txt");
     strcpy(buf, data.c_str());  
     
     if ((numbyte = send(tcp_sockfd, buf, 1024, 0)) > 0) {
-        cout << "<SellerB> has sent " << buf << " to the agent" << endl;
+        cout << "<SellerC> has sent " << buf << " to the agent" << endl;
     }
-    cout << "End of Phase I part 1 for <SellerB>" << endl;
+    cout << "End of Phase I part 1 for <SellerC>" << endl;
 }
 
 int main(int argc, char *argv[]) {

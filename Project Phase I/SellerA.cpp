@@ -13,14 +13,16 @@
 #include <fstream>
 #include <arpa/inet.h>
 
-#define PORT 3676 // 3300 + 376 (uscid:3827-1583-76)
+#define SellerA_TCP_PORT 3676
 
 using namespace std;
 
+int tcp_sockfd;
+struct sockaddr_in tcp_servaddr, tcp_cliaddr;
+
 string readFile(string filename) {
     string res = "";
-    string seller = filename.substr(0, 7);
-    ifstream infile(filename);    
+    ifstream infile(filename);
     string line;
     while (getline(infile, line)) {
         stringstream iss(line);
@@ -31,49 +33,69 @@ string readFile(string filename) {
         }
     }
 
-    return seller+","+res.substr(0, res.length()-1);
+    return "sellerA,"+res.substr(0, res.length()-1);
+}
+
+/* Phase I Part 4 */
+void create_tcp_server() {
+    char ipaddr[INET_ADDRSTRLEN];
+
+    tcp_sockfd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+    if (tcp_sockfd < 0) perror("ERROR opening socket");
+
+    bzero((char *) &tcp_servaddr, sizeof(tcp_servaddr)); // make sure the struct is empty
+
+    tcp_servaddr.sin_family = AF_INET;
+    tcp_servaddr.sin_addr.s_addr = INADDR_ANY;
+    tcp_servaddr.sin_port = htons(SellerA_TCP_PORT);
+
+    if (bind(tcp_sockfd, (struct sockaddr *) &tcp_servaddr, sizeof(tcp_servaddr)) < 0) perror("ERROR on binding");
+    strcpy(ipaddr, inet_ntoa(tcp_servaddr.sin_addr));
+
+    if (listen(tcp_sockfd, 5) < 0) perror("ERROR on listening");
+
+    cout << "<SellerA> has TCPport " << SellerA_TCP_PORT << " and IP address " << ipaddr << " for Phase I part 4" << endl;
+}
+
+/* Phase I Part 1 */
+void create_tcp_client() {
+	char ipaddr[INET_ADDRSTRLEN];
+
+	tcp_sockfd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+
+	if (tcp_sockfd == -1) perror("Socket");
+
+	bzero((void *) &tcp_servaddr, sizeof(tcp_servaddr));
+	tcp_servaddr.sin_family = AF_INET;
+	tcp_servaddr.sin_port = htons(4076);
+	tcp_servaddr.sin_addr.s_addr = INADDR_ANY;
+
+	strcpy(ipaddr, inet_ntoa(tcp_servaddr.sin_addr));
+    cout << "<SellerA> has TCPport " << SellerA_TCP_PORT << " and IP address " << ipaddr << " for Phase 1part 1" << endl;
+}
+
+/* Phase I Part 1 */
+void send_to_agent() {
+	char buf[1024];
+	int numbyte;
+
+	if (-1 == connect(tcp_sockfd, (struct sockaddr *)&tcp_servaddr, sizeof(tcp_servaddr))) perror("Connect");
+
+	cout << "<SellerA> is now connected to the <Agent1>" << endl;
+
+	string data = readFile("seller/sellerA.txt");
+	strcpy(buf, data.c_str());  
+	
+	if ((numbyte = send(tcp_sockfd, buf, 1024, 0)) > 0) {
+		cout << "<SellerA> has sent " << buf << " to the agent" << endl;
+	}
+	cout << "End of Phase I part 1 for <SellerA>" << endl;
 }
 
 int main(int argc, char *argv[]) {
-	struct sockaddr_in servaddr;
-	char buf[1024];
-	int numbyte;
-	char s[INET_ADDRSTRLEN];
-
-	int sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-
-	if (sock == -1) perror("Socket");
-
-	bzero((void *) &servaddr, sizeof(servaddr));
-	servaddr.sin_family = AF_INET;
-	servaddr.sin_port = htons(4076);
-	servaddr.sin_addr.s_addr = INADDR_ANY;
-
-	struct sockaddr_in* pV4Addr = (struct sockaddr_in*) &servaddr;
-	struct in_addr ipAddr = pV4Addr->sin_addr;
-	char str[INET_ADDRSTRLEN];
-	inet_ntop( AF_INET, &ipAddr, str, INET_ADDRSTRLEN );
-
-	printf("<SellerA> has TCP port %d and IP address %s for Phase I part 1", PORT, str);
-
-	if (-1 == connect(sock, (struct sockaddr *)&servaddr, sizeof(servaddr))) perror("Connect");
-
-	printf("<SellerA> is now connected to the <Agent1>");
-
-
-
-
-	string data = readFile("sellerA.txt");
-	//cout << data << endl;
-	strcpy(buf, data.c_str());  
-	
-	if ((numbyte = send(sock, buf, 1024, 0)) > 0) {
-		cout << "Sent" << endl;
-	}
-
-	if ((numbyte = recv(sock, buf, 1024, 0)) > 0) {
-		cout << "Recv" << endl;
-	}
+	create_tcp_client();
+	send_to_agent();
+	create_tcp_server();
 
 	return 0;
 }
