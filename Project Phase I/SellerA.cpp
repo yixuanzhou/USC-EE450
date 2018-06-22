@@ -54,7 +54,7 @@ void create_tcp_server() {
 
     if (listen(tcp_sockfd, 5) < 0) perror("ERROR on listening");
 
-    cout << "<SellerA> has TCPport " << SellerA_TCP_PORT << " and IP address " << ipaddr << " for Phase I part 4" << endl;
+    cout << "<SellerA> has TCP port " << SellerA_TCP_PORT << " and IP address " << ipaddr << " for Phase I part 4" << endl;
 }
 
 /* Phase I Part 1 */
@@ -71,7 +71,7 @@ void create_tcp_client() {
 	tcp_servaddr.sin_addr.s_addr = INADDR_ANY;
 
 	strcpy(ipaddr, inet_ntoa(tcp_servaddr.sin_addr));
-    cout << "<SellerA> has TCPport " << SellerA_TCP_PORT << " and IP address " << ipaddr << " for Phase 1part 1" << endl;
+    cout << "<SellerA> has TCP port " << SellerA_TCP_PORT << " and IP address " << ipaddr << " for Phase I part 1" << endl;
 }
 
 /* Phase I Part 1 */
@@ -92,10 +92,23 @@ void send_to_agent() {
 	cout << "End of Phase I part 1 for <SellerA>" << endl;
 }
 
+void receive_from_agent() {
+    int newsockfd;
+    char buffer[256];
+    int numbytes;
+    socklen_t clilen = sizeof(tcp_cliaddr);
+    newsockfd = accept(tcp_sockfd, (struct sockaddr *) &tcp_cliaddr, &clilen);
+    read(newsockfd, buffer, 255);
+    cout << buffer << endl;
+    sleep(1);
+    cout << "End of Phase I part 4 for <SellerA>" << endl;
+}
+
 int main(int argc, char *argv[]) {
 	create_tcp_client();
 	send_to_agent();
 	create_tcp_server();
+    receive_from_agent();
 
 	return 0;
 }

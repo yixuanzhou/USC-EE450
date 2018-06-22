@@ -15,6 +15,7 @@
 #include <vector>
 #include <sstream>
 #include <fstream>
+#include <map>
 
 #define Agent1_TCP_PORT 4076
 
@@ -33,6 +34,7 @@ vector<string> parseMsg(string info) {
         getline(ss, substr, ',');
         res.push_back(substr);
     }
+
     return res;
 }
 
@@ -66,6 +68,32 @@ string store_seller_info(string seller_info) {
     res.close();
 
     return seller_name;
+}
+
+void store_buyer_info(string buyer_info) {
+    ofstream res;
+    res.open("Agent1.txt", ios::out | ios::app);
+    res << buyer_info;
+    res << endl;
+    res.close();
+}
+
+vector<vector<string>> parse_buyer_info(string filename) {
+    vector<vector<string>> res;
+    ifstream infile(filename);
+    vector<string> info;
+    string line;
+    while (getline(infile, line)) {
+        stringstream iss(line);
+        string s;
+        while (iss.good()) {
+            getline(iss, s, ',');
+            info.push_back(s);
+        }
+        res.push_back(info);
+        info.clear();
+    }
+    return res;
 }
 
 /* Phase I part 1 & 3*/
@@ -131,20 +159,19 @@ void send_to_buyer(int port, int buyer_name) {
     udp_servaddr.sin_port = htons(port);
     udp_servaddr.sin_addr.s_addr = INADDR_ANY;
     socklen_t addrlen = sizeof(udp_servaddr);
+    sendto(udp_sockfd, "1", 1024, 0, (const struct sockaddr *) &udp_servaddr, sizeof(udp_servaddr));
     string msg = parse_seller_info("Agent1.txt");
     strcpy(buf, msg.c_str());
-    clear_seller_info("Agent1.txt");
     sendto(udp_sockfd, buf, 1024, 0, (const struct sockaddr *) &udp_servaddr, sizeof(udp_servaddr));
     printf("<Agent1> has sent %s to <Buyer%d>\n", buf, buyer_name);
 }
 
 /* Phase I part 3 */
-vector<pair<string, string>> receive_from_buyers(int numOfBuyers) {
+void receive_from_buyers(int numOfBuyers) {
     int newsockfd, pid;
     char buffer[256];
     int numbytes;
     bzero(buffer, 256);
-    vector<pair<string, string>> res;
     socklen_t clilen = sizeof(tcp_cliaddr);
 
     for(int ct = 0; ct < numOfBuyers; ct++) {
@@ -157,38 +184,71 @@ vector<pair<string, string>> receive_from_buyers(int numOfBuyers) {
             close(tcp_sockfd);
             numbytes = read(newsockfd, buffer, 255);
             if (numbytes < 0) perror("ERROR reading from socket");
+            store_buyer_info(string(buffer));
             string response = string(buffer);
-            if (response == "NAK") continue;
             vector<string> msg = parseMsg(response);
-            printf("<Agent1> receives the offer from <%s>\n", msg[0].c_str());  
-            pair<string, string> bingo = make_pair(msg[0], msg[1]);
-            res.push_back(bingo);
+            printf("<Agent1> receives the offer from <%s>\n", msg[0].c_str());
             exit(0);
         } else close(newsockfd);
     }
     sleep(1);
     cout << "End of Phase I part 3 for <Agent1>" << endl;
-    return res;
 }
 
+/* Phase I part 4 */
+vector<vector<string>> calculate_bid() {
+    vector<vector<string>> bids = parse_buyer_info("Agent1.txt");
+    vector<string> res = {"NAK", "NAK"};
+    vector<string> interested_buyers;
+    int bidA = 0;
+    int bidB = 0;
+    for (int i = 0; i < 5; i++) {
+        vector<string> bid = bids[i];
+        if (bid[1] == "sellerA") {
+            interested_buyers.push_back(bid[0]);
+            int curr_bid = stoi(bid[2]);
+            if (curr_bid > bidA) {
+                res[0] = bid[0];
+                bidA = curr_bid;
+            }
+        }
+        if (bid[1] == "sellerB") {
+            int curr_bid = stoi(bid[2]);
+            interested_buyers.push_back(bid[0]);
+            if (curr_bid > bidB) {
+                res[1] = bid[0];
+                bidB = curr_bid;
+            }
+        }
+    }
 
+    vector<vector<string>> inf;
+    inf.push_back(res);
+    inf.push_back(interested_buyers);
 
-void tcp_client(int port) {
-    struct sockaddr_in servaddr;
+    return inf;
+}
 
+/* Phase I part 4 */
+void send_final_result(int port, string name, string result) {
+    char buf[1024];
+    int numbyte;
     char ipaddr[INET_ADDRSTRLEN];
 
-    int sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+    int tcp_sockfd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+    if (tcp_sockfd == -1) perror("Socket");
+    bzero((void *) &tcp_servaddr, sizeof(tcp_servaddr));
+    tcp_servaddr.sin_family = AF_INET;
+    tcp_servaddr.sin_port = htons(port);
+    tcp_servaddr.sin_addr.s_addr = INADDR_ANY;
+    strcpy(ipaddr, inet_ntoa(tcp_servaddr.sin_addr));
+    //printf("<SellerA> has TCP port %d and IP address %s for Phase I part 1\n", Agent1_TCP_PORT, ipaddr);
 
-    if (sock == -1) perror("Socket");
-
-    bzero((void *) &servaddr, sizeof(servaddr));
-    servaddr.sin_family = AF_INET;
-    servaddr.sin_port = htons(port);
-    servaddr.sin_addr.s_addr = INADDR_ANY;
-
-    strcpy(ipaddr, inet_ntoa(udp_servaddr.sin_addr));
-    printf("<SellerA> has TCP port %d and IP address %s for Phase I part 1\n", Agent1_TCP_PORT, ipaddr);
+    if (-1 == connect(tcp_sockfd, (struct sockaddr *)&tcp_servaddr, sizeof(tcp_servaddr))) perror("Connect");
+    strcpy(buf, result.c_str());
+    send(tcp_sockfd, buf, 1024, 0);
+    printf("<Agent1> has send the result to <%s>\n", name.c_str());
+    sleep(1);
 }
  
 int main(int argc, char *argv[]) {
@@ -201,13 +261,34 @@ int main(int argc, char *argv[]) {
     send_to_buyer(21976, 3);
     send_to_buyer(22076, 4);
     send_to_buyer(22176, 5);
+    clear_seller_info("Agent1.txt");
     cout << "End of Phase I part 2 for <Agent1>" << endl;
     close(udp_sockfd);
     //tcp_server(Agent1_TCP_PORT, 3);
-    vector<pair<string, string>> res;
-    res = receive_from_buyers(1);
-    
-  
+    //vector<pair<string, string>> res;
+    receive_from_buyers(5);
+    vector<vector<string>> inf = calculate_bid();
+    vector<string> to_sellers = inf[0];
+    vector<string> to_buyers = inf[1];
+    clear_seller_info("Agent1.txt");
+
+    map<string, string> lmao;
+    send_final_result(3676, "sellerA", to_sellers[0]);
+    lmao[to_sellers[0]] = "sellerA";
+    send_final_result(3776, "sellerB", to_sellers[1]);
+    lmao[to_sellers[1]] = "sellerB";
+    map<string, int> all_buyers_port_num;
+    all_buyers_port_num["Buyer1"]  = 4276;
+    all_buyers_port_num["Buyer2"]  = 4376;
+    all_buyers_port_num["Buyer3"]  = 4476;
+    all_buyers_port_num["Buyer4"]  = 4576;
+    all_buyers_port_num["Buyer5"]  = 4676;
+
+    for (string msg : to_buyers) {
+        int buyer_port_num = all_buyers_port_num[msg];
+        if (msg != to_sellers[0] and msg != to_sellers[1]) send_final_result(buyer_port_num, msg, "NAK");
+        else send_final_result(buyer_port_num, msg, lmao[msg]);
+    }
 
     return 0;
 }
