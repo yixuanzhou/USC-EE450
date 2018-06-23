@@ -1,0 +1,128 @@
+================================================================================
+                            EE450 Project Phase I
+================================================================================
+
+                            Name:    Yixuan Zhou
+                            USC ID:  3827-1583-76
+
+================================================================================
+
+I.  What I have done in this assignment?
+
+    In this socket-programming project, I implemented the simulation of a house
+    selling process, which mainly using tcp and udp sockets to send and receive
+    information from sellers, agents and buyers.
+
+    Since there are multiple sellers and buyers, I use fork() function in Agent
+    code to create multiple child sockets to receive and send message to sellers
+    and buyers. And I store information in a local txt file when using fork().
+
+    I tested all code both on my local Ubuntu and remote nunki server.
+
+================================================================================
+
+II. Implementations
+
+    1. Agent
+
+        The workflow of Agent is as follows:
+
+            a. Create and bind to the TCP server socket.
+            b. Accept TCP connections from the corresponding sellers.
+            d. Receive property information from sellers over TCP.
+            e. Store property information in a temporary local file.
+            f. Create UDP client socket.
+            g. Send property information to all five buyers over UDP.
+            h. Receive buyers response over TCP.
+            i. Calculate final result for his sellers.
+            j. Create TCP client socket.
+            k. Send final result to his sellers and corresponding buyers over TCP.
+
+    2. Seller
+
+        The workflow of Seller is as follows:
+
+            a. Create TCP client socket and connect with Agent.
+            b. Read his property information from local text file.
+            c. Send his property information to his agent over TCP.
+            d. Create TCP server socket.
+            e. Receive final result from agent over TCP.
+
+    3. Buyer
+
+        The workflow of Buyer is as follows:
+
+            a. Create UDP server socket.
+            b. Receive property information from agents over UDP.
+            c. Read his requirement information from local text file.
+            d. Compare the property information with his requirement and get a decision.
+            e. Create TCP client socket.
+	    f. Send his decision to agents over TCP.
+            g. Create TCP server socket.
+            h. Receive final result from agent over TCP.
+
+================================================================================
+
+III. How to run the programs:
+
+    *** Put all "seller.txt" files under a folder named "seller" ***
+    *** Put all "buyer.txt" files under a folder named "buyer" ***
+
+    1. First open 11 different terminal window instances.
+
+    2. Use one terminal and type "make all" to compile all the cpp files.
+
+    3. In the first 2 terminals, type the following commands in order:
+      
+        Agent1
+        Agent2
+
+    4. In the next 5 terminals, type the following commands in order:
+
+        Buyer1
+        Buyer2
+        Buyer3
+        Buyer4
+        Buyer5
+
+    5. In the final 4 terminals, type the following commands in order:
+
+        SellerA
+        SellerB
+        SellerC
+        SellerD
+
+================================================================================
+
+IV.  Message Format
+
+    The message format is as follows.
+
+    1. Seller sends message (its property information) to agent.
+       <[SellerX],[Listing price],[xxx],[Square footage],[xxx]>
+
+    2. Agents sends message (property information) to all buyers.
+       Each agent send message containing two pieces of information.
+       <[SellerX],[Listing price],[xxx],[Square footage],[xxx],
+        [SellerY],[Listing price],[xxx],[Square footage],[xxx]>
+
+    3. Buyer sends to message (his decision) to agents.
+       <[BuyerX],[SellerX],[xxx(budget)]>      
+
+    4. Agent sends final result to seller.
+       <[BuyerX]>
+
+    5. Agent sends final result to buyer.
+       <[SellerX]>
+
+================================================================================
+
+V. Reused Code
+
+        a. Read local txt file function code is reused from my lab1
+
+        b. Integer to String function code is reused from my lab2
+
+================================================================================
+
+<EOF>
