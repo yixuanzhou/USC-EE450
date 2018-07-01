@@ -19,7 +19,6 @@ public class STDM {
         String[] cmps = source.split(":");
         char srcName = cmps[0].charAt(6);
         String srcItem = cmps[1];
-        //System.out.println(srcName + ":" + srcItem);
         String[] frame = srcItem.split(",");
         duration = Math.max(duration, getLastTime(frame));
         List<String> frames = new ArrayList<>(Arrays.asList(frame));
@@ -47,7 +46,6 @@ public class STDM {
                 int startTime = Integer.parseInt(f[0]);
                 int endTime = Integer.parseInt(f[1]);
                 int block = f[2].charAt(1) - '0';
-                //System.out.println(startTime + " " + endTime + " " + f[2] + " " + block);
                 for (int i = startTime; i < endTime; i++) inBuf[srcNum][i] = block;
                 inputRate += ((endTime - startTime)) * 1.0 / duration;
             }
@@ -64,7 +62,6 @@ public class STDM {
         }
         return res.toString();
     }
-
 
     private void outputBuffer(int[][] inBuf) {
         String startFlag = "1", endFlag = "1";
@@ -88,21 +85,17 @@ public class STDM {
                 }
             }
             frame.append(endFlag);
-            System.out.println(frame.toString());
+            if (frame.length() == 2) continue;
+            System.out.println("Start: "+ t + " End: " + (t+1) + " " + frame.toString());
         }
     }
 
-
     public static void main(String args[]) {
         STDM s = new STDM();
-        //Map<Character, List<String>> src = s.readFile(args[0]);
-        Map<Character, List<String>> src = s.readFile("input.txt");
+        Map<Character, List<String>> src = s.readFile(args[0]);
         int[][] inBuffer = s.inputBuffer(src.size(), src);
         s.outputBuffer(inBuffer);
-        //System.out.println(Arrays.deepToString(tmp));
-        //System.out.println(s.inputRate);
     }
-
 
     private class Pair<A, B> {
         private A src;
