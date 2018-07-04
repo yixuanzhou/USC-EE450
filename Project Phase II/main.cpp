@@ -19,13 +19,13 @@ int main(int argc, char **argv) {
     int numOfProp = 2; // number of proposers
     int numOfAcpt = 3; // number of acceptors
 
-    for (unsigned int i = 2000; i < 2030; i+=10) acceptors.push_back(Acceptor(i));
-    for (int i = 0; i < numOfProp; i++) proposers.push_back(Proposer());
+    for (unsigned int i = 3000; i < 3030; i+=10) acceptors.push_back(Acceptor(i, i));
+    for (int i = 0; i < numOfProp; i++) proposers.push_back(Proposer(i, acceptors));
 
     vector<thread> proposer_threads;
-    unsigned int p = 2000;
+    unsigned int p = 3000;
     for (auto proposer : proposers) {
-        proposer_threads.push_back(thread(&Proposer::propose, proposer, p));
+        proposer_threads.push_back(thread(&Proposer::propose, proposer, 1, p));
         p += 10;
     }
 
@@ -33,7 +33,6 @@ int main(int argc, char **argv) {
 
     vector<thread> acceptor_threads;
     for (auto acceptor : acceptors) {
-        cout << "r" << endl;
         acceptor_threads.push_back(thread(&Acceptor::accept, acceptor));
     }
 
