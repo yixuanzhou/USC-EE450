@@ -7,14 +7,17 @@
 #include <sys/socket.h>
 #include <arpa/inet.h>
 #include <netinet/in.h>
+
 #include "Acceptor.h"
 #include <sstream>
+#include <chrono>
+#include <vector>
+
 
 using namespace std;
 
-Acceptor::Acceptor(unsigned int id, unsigned int port) : id(id), myport(port) {
+Acceptor::Acceptor(unsigned int id, unsigned int port) : id(id), port(port) {
     sockfd = socket(AF_INET, SOCK_DGRAM, 0);
-
     memset(&servaddr, 0, sizeof(servaddr));
     memset(&cliaddr, 0, sizeof(cliaddr));
     servaddr.sin_family = AF_INET;
@@ -22,63 +25,114 @@ Acceptor::Acceptor(unsigned int id, unsigned int port) : id(id), myport(port) {
     servaddr.sin_addr.s_addr = INADDR_ANY;
 
     if (bind(sockfd, (const struct sockaddr *)&servaddr, sizeof(servaddr)) < 0) perror("Bind failed");
-    cout << "Acceptor" << id << " created with port num: "<< port << endl;
+    //cout << "Acceptor" << id << " created with port num: "<< port << endl;
 }
 
-vector<int> Acceptor::parseMsg(string msg) {
-    stringstream ss(msg);
-    vector<int> res;
+Request parseRequest(string request) {
+    stringstream ss(request);
+    vector<string> tmp;
     while (ss.good()) {
         string str;
         getline(ss, str, ',');
-        res.push_back(stoi(str));
+        tmp.push_back(str);
     }
-    return res;
+    Request req;
+    req.type = tmp[0];
+    req.requestNum = stoi(tmp[1]);
+    req.requestVal = stoi(tmp[2]);
+    req.proposerID = stoi(tmp[3]);
+
+    return req;
 }
 
-void Acceptor::prepare() {
-    char buf[128];
+string Acceptor::respond(Response res) {
+    string response;
+    response.append(res.type+",");
+    response.append(res.result+",");
+    response.append(to_string(res.promiseID)+",");
+    response.append(to_string(res.acceptedID)+",");
+    response.append(to_string(res.acceptedValue)+",");
+    response.append(to_string(res.acceptorID));
+    return response;
+}
+
+void Acceptor::run() {
+    char buf[1024];
     socklen_t len = sizeof(cliaddr);
-    recvfrom(sockfd, (char *)buf, 128, 0, (struct sockaddr *) &cliaddr, &len);
-    vector<int> msg = this->parseMsg(buf);
-    unsigned int currProposalNum = (unsigned int) msg[0];
-    int currProposalVal = msg[1];
-    AcceptorResponse res;
+    while (true) {
+        recvfrom(sockfd, (char *) buf, 1024, 0, (struct sockaddr *) &cliaddr, &len);
+        Request proposal = parseRequest(buf);
+        cout << "Acceptor" << this->id <<" received proposal: " << proposal.requestNum << endl;
+        Response res = processProposal(proposal);
+        string response = respond(res);
+        sendto(sockfd, response.c_str(), 1024, 0, (struct sockaddr *) &cliaddr, sizeof(cliaddr));
+        recvfrom(sockfd, (char *) buf, 1024, 0, (struct sockaddr *) &cliaddr, &len);
+    }
+}
 
-    // if acceptor never receives any proposal, then
-    if (this->state.lastProposalNum == 0 && this->state.minNumToAccept == 0) {
-        this->state.lastProposalNum = currProposalNum;
-        this->state.lastProposalVal = currProposalVal;
-        this->state.minNumToAccept = currProposalNum;
-        res.prepareAck = true;
-        res.accepted = true;
-        res.prevValue = currProposalVal;
-        res.prevProposalNum = currProposalNum;
-    } else {
-        // if acceptor received proposal that is greater than the promised proposal
-        if (this->state.minNumToAccept < currProposalNum) {
-            this->state.minNumToAccept = currProposalNum;
+/* Acceptor receives a PREPARE message for IDp:
+ * if it has PROMISED to ignore request with this IDp, then ignore,
+ * otherwise, it PROMISE to ignore any request lower than IDp. */
+Response Acceptor::prepare(Request proposal) {
+    Response response;
 
-        } else { // if acceptor received proposal that is equal to the promised proposal
-            if (this->state.minNumToAccept == currProposalNum) {
-                this->state.lastProposalNum = currProposalNum;
-                this->state.lastProposalVal = currProposalVal;
-            } else { // if acceptor received proposal that is less than the promised proposal
-
-            }
-
+    if (this->minNumToAccept < proposal.requestNum) {
+        this->minNumToAccept = proposal.requestNum;
+        // Acceptor has already accepted IDa, then reply with PROMISE IDp, accepted IDa, val.
+        if (this->alreadyAccepted) {
+            response.type = "prepare";
+            response.result = "promise";
+            response.promiseID = proposal.requestNum;
+            response.acceptedID = this->acceptedNum;
+            response.acceptedValue = this->acceptedVal;
+            response.acceptorID = this->id;
+        }
+        // Acceptor has not accepted any proposal yet, reply with PROMISE IDp.
+        else {
+            response.type = "prepare";
+            response.result = "promise";
+            response.promiseID = proposal.requestNum;
+            response.acceptorID = this->id;
         }
     }
+    // Acceptor ignores any request lower than IDp
+    else {
+        response.type = "prepare";
+        response.result = "reject";
+        response.acceptorID = this->id;
+    }
 
-
-
-    if (proposalNum > minNumToAccept) {
-        minNumToAccept = proposalNum;
-        prevValue = value;
-    } else prepareAck = false;
+    return response;
 }
 
-void Acceptor::accept() {
+/* Acceptor receives an ACCEPT-REQUEST message for IDp, value:
+ * if it has PROMISED to ignore request with this IDp, then ignore,
+ * otherwise, reply with ACCEPT IDp, value. Also send it to learners. */
+Response Acceptor::accept(Request proposal) {
+    Response response;
 
+    if (this->minNumToAccept == proposal.requestNum) {
+        this->alreadyAccepted = true;
+        this-> acceptedNum = proposal.requestNum;
+        this-> acceptedVal = proposal.requestVal;
+        response.type = "accept";
+        response.result = "chosen";
+        response.acceptedID = proposal.requestNum;
+        response.acceptedValue = proposal.requestVal;
+        response.acceptorID = this->id;
+    } else {
+        response.type = "accept";
+        response.result = "reject";
+        response.acceptorID = this->id;
+    }
 
+    return response;
+}
+
+Response Acceptor::processProposal(Request proposal) {
+    Response response;
+    if (proposal.type == "prepare") response = this->prepare(proposal);
+    else if (proposal.type == "accept") response = this->accept(proposal);
+    else cout << "Invalid proposal" << endl;
+    return response;
 }
