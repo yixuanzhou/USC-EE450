@@ -26,14 +26,15 @@ struct Proposal
 class Proposer
 {
 public:
-    Proposer(unsigned int id, vector<Acceptor> acceptors);
-    void run(unsigned int id);
+    unsigned int id;
+    unsigned int port;
+    Proposer(unsigned int id, unsigned int port, vector<Acceptor> acceptors);
+    void run(unsigned int id, unsigned int numOfProposer);
     vector<Acceptor> acceptors;
 
 private:
-    unsigned int id;
     int sockfd;
-    struct sockaddr_in servaddr;
+    struct sockaddr_in servaddr, cliaddr;
     unsigned int promiseNum;
     void propose(unsigned int id);
     void accept(unsigned int id);

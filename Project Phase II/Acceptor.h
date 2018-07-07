@@ -9,6 +9,7 @@
 #include <sys/socket.h>
 #include <arpa/inet.h>
 #include <netinet/in.h>
+#include <vector>
 
 
 using namespace std;
@@ -21,6 +22,7 @@ struct Response
     unsigned int acceptedID = 0;
     int acceptedValue = -1;
     unsigned int acceptorID;
+    unsigned int proposerPort;
 };
 
 struct Request
@@ -29,6 +31,7 @@ struct Request
     unsigned int requestNum = 0;
     int requestVal = -1;
     unsigned int proposerID;
+    unsigned int proposerPort;
 };
 
 class Acceptor
@@ -36,20 +39,20 @@ class Acceptor
 public:
     unsigned int id;
     unsigned int port;
-    bool alreadyAccepted;
+    bool alreadyAccepted = false;
     int acceptedVal;
-    Acceptor(unsigned int id, unsigned int port);
+    Acceptor(unsigned int id, unsigned int port, vector<int> learnerPorts);
     void run();
     Response prepare(Request proposal);
     Response accept(Request proposal);
 
 private:
-
     int sockfd;
     struct sockaddr_in servaddr, cliaddr;
-    string respond(Response res);
+    bool respond(Response res, unsigned int port);
     Response processProposal(Request proposal);
     unsigned int acceptedNum;
     unsigned int minNumToAccept = 0;
+    vector<int> learnerPorts;
 };
 #endif
