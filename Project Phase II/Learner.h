@@ -19,7 +19,7 @@ class Learner
 public:
     unsigned int id;
     unsigned int port;
-    Learner(unsigned int id, unsigned int port, vector<Acceptor> acceptors);
+    Learner(unsigned int id, unsigned int port);
     void run(unsigned int id);
     vector<Acceptor> acceptors;
 

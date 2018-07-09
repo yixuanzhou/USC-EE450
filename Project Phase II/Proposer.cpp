@@ -17,6 +17,8 @@
 
 using namespace std;
 
+/* Function used to safely cout in multi-threading
+ * From stackoverflow.com/questions/18277304/using-stdcout-in-multiple-threads */
 class PrintThread: public ostringstream {
 public:
     PrintThread() = default;
@@ -28,7 +30,10 @@ private:
 
 mutex PrintThread::_mutexPrint{};
 
-/* Proposer constructor */
+/* Proposer constructor
+ * id: Proposer id number, e.g. Proposer1, Proposer2...
+ * port: Proposer UDP client port number.
+ * acceptors: all instances of Acceptors. */
 Proposer::Proposer(unsigned int id, unsigned int port, vector<Acceptor> acceptors)
                    : id(id), port(port), acceptors(acceptors) {
     if ((sockfd = socket(AF_INET, SOCK_DGRAM, 0)) < 0) perror("Socket failed");
@@ -40,6 +45,7 @@ Proposer::Proposer(unsigned int id, unsigned int port, vector<Acceptor> acceptor
     this->majority = (unsigned int) acceptors.size() / 2 + 1;
 }
 
+/* Parse received request into Response struct. */
 Response parseResponse(string response) {
     stringstream ss(response);
     vector<string> tmp;
@@ -58,6 +64,7 @@ Response parseResponse(string response) {
     return res;
 }
 
+/* Convert proposal struct into string to be used in socket connection. */
 string Proposer::proposal(Proposal prop) {
     string proposal;
     proposal.append(prop.type+",");
@@ -76,7 +83,6 @@ void Proposer::run(unsigned int id, unsigned int numOfProposer) {
         do { // PROPOSE PHASE
             this->propose(id+=numOfProposer); // Proposer sends proposal to Acceptors
             this_thread::sleep_for(chrono::milliseconds(1000));
-            //id += numOfProposer;
             while (true) {
                 if (!this->receive()) break;
                 if (this->promiseCt >= majority) { endPropose = true; break; }
@@ -88,15 +94,14 @@ void Proposer::run(unsigned int id, unsigned int numOfProposer) {
             this_thread::sleep_for(chrono::milliseconds(1000));
             while (true) {
                 if (!this->receive()) break;
+                // If a majority of Acceptors accept a request with ID and value,
+                // consensus has been reached and is that value.
                 if (this->acceptCt >= majority) {cout << "Reach CONSENSUS with value " << acceptedVal << endl; reachConsensus = true;}
             }
         } while (!reachConsensus);
 
         close(this->sockfd);
         exit(0);
-
-        /* If a majority of Acceptors accept a request with ID and value,
-         * consensus has been reached and is that value. */
     }
 }
 
@@ -104,6 +109,7 @@ void Proposer::run(unsigned int id, unsigned int numOfProposer) {
  * IDp must be unique, e.g. timestamp. If timeout, then resending with a higher IDp. */
 void Proposer::propose(unsigned int num) {
     default_random_engine randomEngine(1000);
+    randomEngine.seed(chrono::system_clock::now().time_since_epoch().count());
     uniform_int_distribution<int> uniform_dist(1, 1000);
     //this_thread::sleep_for(chrono::milliseconds(uniform_dist(randomEngine)));
     Proposal prop;
@@ -118,6 +124,7 @@ void Proposer::propose(unsigned int num) {
         servaddr.sin_addr.s_addr = INADDR_ANY;
         sendto(sockfd, msg.c_str(), 1024, 0, (const struct sockaddr *) &servaddr, sizeof(servaddr));
         PrintThread{} << "Proposer " << this->id << " sent PREPARE id" << num << " to Acceptor " << acceptor.id << endl;
+        this_thread::sleep_for(chrono::milliseconds(uniform_dist(randomEngine))); // set random delay between sending message to different Acceptors
     }
 }
 
@@ -137,24 +144,30 @@ void Proposer::accept(unsigned int id) {
         servaddr.sin_family = AF_INET;
         servaddr.sin_port = htons(acceptor.port);
         servaddr.sin_addr.s_addr = INADDR_ANY;
-        // Proposer has already got accepted value from promises.
-        if (acceptor.alreadyAccepted) {cout << "caoniam" << endl; prop.proposalVal = acceptor.acceptedVal;}
+        if (acceptor.alreadyAccepted) { // Proposer has already got accepted value from promises.
+            PrintThread{} << "Acceptor " << acceptor.id << "has already accepted value " << acceptor.acceptedVal << endl;
+            prop.proposalVal = acceptor.acceptedVal;
+            this_thread::sleep_for(chrono::milliseconds(500));
+        }
         else prop.proposalVal = randomVal; // else it picks a random value
         string msg = this->proposal(prop);
         sendto(sockfd, msg.c_str(), 1024, 0, (const struct sockaddr *) &servaddr, sizeof(servaddr));
         PrintThread{} << "Proposer " << this->id << " sent ACCEPT-REQUEST id" << prop.proposalNum
                       << ", value" << prop.proposalVal <<" to Acceptor " << acceptor.id << endl;
+        this_thread::sleep_for(chrono::milliseconds(500));
     }
 }
 
 bool Proposer::receive() {
     char buf[1024];
     socklen_t len = sizeof(servaddr);
+    // Set timeout to 5 seconds
     struct timeval timeout;
     timeout.tv_sec = 5;
     timeout.tv_usec = 0;
     setsockopt(sockfd, SOL_SOCKET, SO_RCVTIMEO, (char *)&timeout, sizeof(timeout));
-    if (recvfrom(sockfd, (char *) buf, 1024, 0, (struct sockaddr *) &servaddr, &len) < 0) {cout<< "TO" << endl; return false;}
+    if (recvfrom(sockfd, (char *) buf, 1024, 0, (struct sockaddr *) &servaddr, &len) < 0) {
+        PrintThread{} << "Proposer " << this->id <<  " Timeout" << endl; return false; }
 
     Response res = parseResponse(buf);
     if (res.type == "prepare" && res.result == "promise") {

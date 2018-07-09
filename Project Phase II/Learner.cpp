@@ -24,8 +24,7 @@ private:
     static mutex _mutexPrint;
 };
 
-Learner::Learner(unsigned int id, unsigned int port, vector<Acceptor> acceptors)
-                 : id(id), port(port), acceptors(acceptors) {
+Learner::Learner(unsigned int id, unsigned int port) : id(id), port(port) {
     if ((sockfd = socket(AF_INET, SOCK_DGRAM, 0)) < 0) perror("Socket failed");
     memset(&cliaddr, 0, sizeof(cliaddr));
     cliaddr.sin_family = AF_INET;
@@ -56,7 +55,10 @@ void Learner::run(unsigned int id) {
     bool reachConsensus = false;
     do {
         this->receive();
-        if (this->acceptCt >= majority) {cout << "Learner reaches CONSENSUS!!!" << endl; reachConsensus = true;}
+        if (this->acceptCt >= majority) {
+            PrintThread{} << "Learner " << this->id << " reaches CONSENSUS, value is " << this->acceptedVal << endl;
+            reachConsensus = true;
+        }
     } while (!reachConsensus);
 
     close(this->sockfd);

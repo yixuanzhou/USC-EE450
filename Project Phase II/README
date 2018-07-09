@@ -1,0 +1,104 @@
+================================================================================
+                            EE450 Project Phase II
+================================================================================
+
+                            Name:    Yixuan Zhou
+                            USC ID:  3827-1583-76
+
+================================================================================
+
+I.  What I have done in this assignment?
+
+    In this project, I implemented the Paxos algorithm. To implement this, I read
+    the "Paxos Made Simple" written by Leslie Lamport to understand the principle
+    of Paxos. During the implementation, I used multi-threading in C++ technique
+    to run different instances of proposer, acceptors and learners.
+
+    For the communication among these instances, I used UDP socket connection to
+    send and received messages according to the project requirement.
+
+    I tested all code both on my local Ubuntu and remote viterbi-scf1 server.
+
+================================================================================
+
+II. Implementations
+
+    1. Proposer
+
+        The workflow of Proposer is as follows:
+
+            a. Create an UDP client socket and bind to a specific port.
+            b. Send its unique PREPARE ID to all Acceptors through UDP.
+            c. Wait to receive response from Acceptors for 5 seconds,
+               if nothing received, then resending a new PREPARE ID.
+            d. If receiving majority of PROMISE for its PREPARE ID,
+               then sending ACCEPT-REQUEST ID and VALUE to Acceptors.
+               - If it has already got accepted value from promises:
+                 pick that value with highest ID it got.
+               - Else it picks any random value.
+            e. Receive ACCEPT message for ID and VALUE from Acceptors.
+
+    2. Acceptor
+
+        The workflow of Acceptor is as follows:
+
+            a. Create an UDP server socket.
+            b. Receive PREPARE ID messages from Proposers through UDP.
+            c. If it promised to ignore this ID, then ignore it.
+               Else:
+               - If it has already accepted VALUE, then reply with
+                 PROMISE ID, accepted ID, accepted VALUE.
+               - Else, reply with PROMISE ID.
+            d. Receive ACCEPT-REQUEST message for ID and VALUE,
+                - If it promised with a higher ID, then ignore this ID.
+                - Else reply with ACCEPT ID and VALUE, and send to Learners.
+
+    3. Learner
+
+        The workflow of Learner is as follows:
+
+            a. Create an UDP client socket and bind to a specific port.
+            b. Receive ACCEPT message for ID and VALUE from Acceptors.
+
+================================================================================
+
+III. How to run the programs:
+
+    Note: Please run on viterbi-scf1, which supports C++ 11.
+
+    1. Open a terminal window instance.
+
+    2. Type "make paxos" to compile all cpp files.
+
+    3. Type "./paxos n1 n2 n3" to run the program.
+           n1 : number of Proposers
+           n2 : number of Acceptors
+           n3 : number of Learners
+           e.g. We run program with 2 Proposers, 3 Acceptors and 1 Learner
+                simply type "./paxos 2 3 1"
+
+================================================================================
+
+IV.  Message Format
+
+    The message format is as follows.
+
+    1. Proposer to Acceptor:
+        ProposalType, ProposalID, ProposalVal, ProposerID, ProposerPort.
+        ProposalType: PREPARE or ACCEPT-REQUEST
+
+    2. Acceptor to Proposer, Learner:
+        ResponseType, Result, PromiseID, AcceptedID, AcceptedVal, AcceptorID.
+        ResponseType: PREPARE or ACCEPT
+        Result: PROMISE, ACCEPT or IGNORE
+
+================================================================================
+
+V. Reused Code
+
+    a. Class "PrintThread" is used to safely cout in multi-threading, referred
+       to stackoverflow.com/questions/18277304/using-stdcout-in-multiple-threads.
+
+================================================================================
+
+<EOF>
