@@ -1,0 +1,20 @@
+memzone_create_file: open: No such file or directory
+dev_create_ram: mmap: No such file or directory
+RAM: unable to create device.
+load_elf_image: invalid load address 0xffffffff80008000
+C3600 'Ghost': failed to load Cisco IOS image 'C:/Users/zhouyixuan/GNS3/images/IOS/c3640-a3js-mz.124-19b.image'.
+memzone_create_file: open: No such file or directory
+dev_create_ram: mmap: No such file or directory
+RAM: unable to create device.
+load_elf_image: invalid load address 0xffffffff80008000
+C3600 'Ghost': failed to load Cisco IOS image 'C:/Users/zhouyixuan/GNS3/images/IOS/c3640-a3js-mz.124-19b.image'.
+memzone_create_file: open: No such file or directory
+dev_create_ram: mmap: No such file or directory
+RAM: unable to create device.
+load_elf_image: invalid load address 0xffffffff80008000
+C3600 'Ghost': failed to load Cisco IOS image 'C:/Users/zhouyixuan/GNS3/images/IOS/c3640-a3js-mz.124-19b.image'.
+memzone_create_file: open: No such file or directory
+dev_create_ram: mmap: No such file or directory
+RAM: unable to create device.
+load_elf_image: invalid load address 0xffffffff80008000
+C3600 'Ghost': failed to load Cisco IOS image 'C:/Users/zhouyixuan/GNS3/images/IOS/c3640-a3js-mz.124-19b.image'.
